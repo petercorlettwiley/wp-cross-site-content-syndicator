@@ -16,45 +16,91 @@ if ( ! defined( 'ABSPATH' ) ) {
   exit;
 }
 /**
- * Get posts via REST API.
+ * Get full page content via REST API.
  */
-function get_content_via_rest() {
-  // Enter the name of your blog here followed by /wp-json/wp/v2/posts and add filters like this one that limits the result to 2 posts.
-  $response_acf = wp_remote_get( 'http://boardorg.staging.wpengine.com/wp-json/acf/v3/pages' );
-  $response_wp = wp_remote_get( 'http://boardorg.staging.wpengine.com/wp-json/wp/v2/pages/2' );
+function get_page_content_via_rest($atts) {
+  extract(shortcode_atts(array(
+    "url" => null,
+    "page_id" => null
+  ), $atts));
+
+  $response = wp_remote_get( $url . '/wp-json/wp/v2/pages/' . $page_id );
   // Exit if error.
-  if ( is_wp_error( $response_acf ) || is_wp_error( $response_wp ) ) {
+  if ( is_wp_error( $response ) ) {
     return;
   }
   // Get the body.
-  $post_wp = json_decode( wp_remote_retrieve_body( $response_wp ) );
-  $post_acf = json_decode( wp_remote_retrieve_body( $response_acf ) );
+  $post = json_decode( wp_remote_retrieve_body( $response ) );
 
   // Exit if nothing is returned.
-  if ( empty( $post_wp ) || empty( $post_acf ) ) {
+  if ( empty( $post ) ) {
     return;
   }
   // If there are posts.
-  $rendered_post = '';
-  if ( ! empty( $post_wp ) ) {
-    // For each post.
-    //foreach ( $posts as $post ) {
-      // Use print_r($post); to get the details of the post and all available fields
-      // Format the date.
-      //$fordate = date( 'n/j/Y', strtotime( $post->modified ) );
-      // Show a linked title and post date.
-      //$allposts .= '<a href="' . esc_url( $post->link ) . '" target=\"_blank\">' . esc_html( $post->title->rendered ) . '</a>  ' . esc_html( $fordate ) . '<br />';
-    //}
+  $rendered_page = '';
+  if ( ! empty( $post ) ) {
+    // Page metadata
+    $page_title = $post->title->rendered;
 
-    $content_blocks = $post_wp->acf->content_block;
+    // Page header
+    $page_header = '<header>' . $post->acf->page_header_content;
+    $rendered_page .= $page_header;
+    $rendered_page .= '</header>';
 
+    // Content blocks (ACF repeater field for displaying content)
+    $content_blocks = $post->acf->content_block;
     foreach ( $content_blocks as $content_block ) {
-      $rendered_post .= var_dump($content_block);
+      $content_block_width = $content_block->content_block_width;
+      $content_block_hr = ($content_block->content_block_hr_divider == true ? ' content_block_hr' : '');
+
+      $rendered_page .= '<div class="content_block ' . $content_block_width . $content_block_hr . '">' . $content_block->content_block_text . '</div>';
     }
+
+    // Page content
+    $page_content = '<div class="content_block">' . $post->content->rendered . '</div>';
+    $rendered_page .= $page_content;
     
     //return $allposts;
-    return $rendered_post;
+    return $rendered_page;
   }
 }
 // Register as a shortcode to be used on the site.
-add_shortcode( 'display_external_page', 'get_content_via_rest' );
+add_shortcode( 'display_external_page', 'get_page_content_via_rest' );
+
+/**
+ * Get footer content via REST API.
+ */
+function get_footer_content_via_rest($atts) {
+  extract(shortcode_atts(array(
+    "url" => null
+  ), $atts));
+
+  $response = wp_remote_get( $url . '/wp-json/acf/v3/options/options' );
+  // Exit if error.
+  if ( is_wp_error( $response ) ) {
+    return;
+  }
+  // Get the body.
+  $options = json_decode( wp_remote_retrieve_body( $response ) );
+
+  // Exit if nothing is returned.
+  if ( empty( $options ) ) {
+    return;
+  }
+  // If there are posts.
+  $rendered_footer = '';
+  if ( ! empty( $options ) ) {
+
+    // Footer columns (ACF repeater field for displaying content)
+    $footer_columns = $options->acf->footer_columns;
+    foreach ( $footer_columns as $footer_column ) {
+      $footer_column_width = $footer_column->footer_column_width;
+      $rendered_footer .= $footer_column->footer_column;
+    }
+    
+    //return $allposts;
+    return $rendered_footer;
+  }
+}
+// Register as a shortcode to be used on the site.
+add_shortcode( 'display_external_footer', 'get_footer_content_via_rest' );
