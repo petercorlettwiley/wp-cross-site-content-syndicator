@@ -4,7 +4,7 @@
  * Description:  Gets ACF and standard WP content from another Wordpress site via the REST API.
  * Plugin URI:   http://www.pcwiley.net
  * Author:       Peter Wiley
- * Version:      0.1
+ * Version:      0.1.2
  * Text Domain:  getcontentviarestapi
  * License:      GPL v2 or later
  * License URI:  https://www.gnu.org/licenses/gpl-2.0.txt
@@ -104,3 +104,81 @@ function get_footer_content_via_rest($atts) {
 }
 // Register as a shortcode to be used on the site.
 add_shortcode( 'display_external_footer', 'get_footer_content_via_rest' );
+
+/**
+ * Get Board link, logo, and color content via REST API.
+ */
+function get_board_content_via_rest($atts) {
+  extract(shortcode_atts(array(
+    "url" => null,
+    "ignore" => null
+  ), $atts));
+
+  $response = wp_remote_get( $url . '/wp-json/acf/v3/options/options' );
+  // Exit if error.
+  if ( is_wp_error( $response ) ) {
+    return;
+  }
+  // Get the body.
+  $options = json_decode( wp_remote_retrieve_body( $response ) );
+
+  // Exit if nothing is returned.
+  if ( empty( $options ) ) {
+    return;
+  }
+
+  // If there are posts.
+  if ( ! empty( $options ) ) {
+
+    $ignore = explode(",", $ignore);
+    $ignore = array_map('trim', $ignore);
+
+    // Board info (ACF repeater field for displaying content)
+    $boards = $options->acf->community_branding;
+    $rendered_boards = '';
+    foreach ( $boards as $board ) {
+
+      // check if board slug is in ignore list, if not then render
+      $board_slug = $board->community_slug;
+
+      if (!in_array($board_slug, $ignore)) {
+
+        // name, url
+  
+        $board_name = $board->community_name;
+  
+        $board_url = ($board->external_community == true ? $board->external_community_url : $url . '/' . $board->community_root_url);
+
+        // color
+  
+        $board_color = $board->community_color;
+  
+        // logo
+  
+        $board_logo = $board->community_logo;
+  
+        $board_logo_ko = $board->community_logo_knockout;
+  
+        $board_logo_width = $board->community_logo_width;
+  
+        $board_logo_height = $board->community_logo_height;
+  
+        $board_block = <<< EOT
+<div class="board_logo">
+  <a href="{$board_url}" target="_blank" class="{$board_slug}" style="border-color: {$board_color};">
+    <img src="{$board_logo}" alt="{$board_name}">
+  </a>
+</div>
+EOT;
+      
+        $rendered_boards .= $board_block;
+
+      }
+    }
+    
+    //return $allposts;
+    return $rendered_boards;
+  }
+}
+// Register as a shortcode to be used on the site.
+add_shortcode( 'display_boards', 'get_board_content_via_rest' );
