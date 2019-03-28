@@ -43,9 +43,9 @@ function get_page_content_via_rest($atts) {
     $page_title = $post->title->rendered;
 
     // Page header
-    $page_header = '<header>' . $post->acf->page_header_content;
+    $page_header = '<header><div class="wrap">' . $post->acf->page_header_content;
     $rendered_page .= $page_header;
-    $rendered_page .= '</header>';
+    $rendered_page .= '</div></header>';
 
     // Content blocks (ACF repeater field for displaying content)
     $content_blocks = $post->acf->content_block;
@@ -53,11 +53,11 @@ function get_page_content_via_rest($atts) {
       $content_block_width = $content_block->content_block_width;
       $content_block_hr = ($content_block->content_block_hr_divider == true ? ' content_block_hr' : '');
 
-      $rendered_page .= '<div class="content_block ' . $content_block_width . $content_block_hr . '">' . $content_block->content_block_text . '</div>';
+      $rendered_page .= '<div class="content_block ' . $content_block_width . $content_block_hr . '"><div class="wrap">' . $content_block->content_block_text . '</div></div>';
     }
 
     // Page content
-    $page_content = '<div class="content_block">' . $post->content->rendered . '</div>';
+    $page_content = '<div class="content_block"><div class="wrap">' . $post->content->rendered . '</div></div>';
     $rendered_page .= $page_content;
     
     //return $allposts;
@@ -95,11 +95,11 @@ function get_footer_content_via_rest($atts) {
     $footer_columns = $options->acf->footer_columns;
     foreach ( $footer_columns as $footer_column ) {
       $footer_column_width = $footer_column->footer_column_width;
-      $rendered_footer .= $footer_column->footer_column;
+      $rendered_footer .= '<div class="footer_column column" style="width: ' . $footer_column_width . '%;">' . $footer_column->footer_column . '</div>';
     }
     
     //return $allposts;
-    return $rendered_footer;
+    return '<div class="footer_columns">' . $rendered_footer . '</div>';
   }
 }
 // Register as a shortcode to be used on the site.
