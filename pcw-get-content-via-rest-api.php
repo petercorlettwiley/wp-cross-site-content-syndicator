@@ -21,7 +21,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 function get_page_content_via_rest($atts) {
   extract(shortcode_atts(array(
     "url" => null,
-    "page_id" => null
+    "page_id" => null,
+    "class" => null
   ), $atts));
 
   $response = wp_remote_get( $url . '/wp-json/wp/v2/pages/' . $page_id );
@@ -60,8 +61,11 @@ function get_page_content_via_rest($atts) {
     $page_content = '<div class="content_block"><div class="wrap">' . $post->content->rendered . '</div></div>';
     $rendered_page .= $page_content;
     
-    //return $allposts;
-    return $rendered_page;
+    if ($class) {
+      return '<div class="' . $class . '">' . $rendered_page . '</div>';
+    } else {
+      return $rendered_page;
+    }
   }
 }
 // Register as a shortcode to be used on the site.
@@ -177,7 +181,7 @@ EOT;
     }
     
     //return $allposts;
-    return $rendered_boards;
+    return '<div class="board_logo_block">' . $rendered_boards . '</div>';
   }
 }
 // Register as a shortcode to be used on the site.
