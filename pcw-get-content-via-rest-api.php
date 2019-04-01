@@ -22,7 +22,8 @@ function get_page_content_via_rest($atts) {
   extract(shortcode_atts(array(
     "url" => null,
     "page_id" => null,
-    "class" => null
+    "class" => null,
+    "exclude_header" => false
   ), $atts));
 
   $response = wp_remote_get( $url . '/wp-json/wp/v2/pages/' . $page_id );
@@ -44,9 +45,11 @@ function get_page_content_via_rest($atts) {
     $page_title = $post->title->rendered;
 
     // Page header
-    $page_header = '<header><div class="wrap">' . $post->acf->page_header_content;
-    $rendered_page .= $page_header;
-    $rendered_page .= '</div></header>';
+    if ( !$exclude_header ){
+      $page_header = '<header><div class="wrap">' . $post->acf->page_header_content;
+      $rendered_page .= $page_header;
+      $rendered_page .= '</div></header>';
+    }
 
     // Content blocks (ACF repeater field for displaying content)
     $content_blocks = $post->acf->content_block;
