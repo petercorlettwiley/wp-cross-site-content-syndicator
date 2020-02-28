@@ -4,7 +4,7 @@
  * Description:  Gets ACF and standard WP content from another Wordpress site via the REST API.
  * Plugin URI:   http://www.pcwiley.net
  * Author:       Peter Wiley
- * Version:      0.1.2
+ * Version:      0.1.3
  * Text Domain:  getcontentviarestapi
  * License:      GPL v2 or later
  * License URI:  https://www.gnu.org/licenses/gpl-2.0.txt
@@ -23,7 +23,8 @@ function get_page_content_via_rest($atts) {
     "url" => null,
     "page_id" => null,
     "class" => null,
-    "exclude_header" => false
+    "exclude_header" => false,
+    "exclude_block" => null
   ), $atts));
 
   $response = wp_remote_get( $url . '/wp-json/wp/v2/pages/' . $page_id );
@@ -53,11 +54,23 @@ function get_page_content_via_rest($atts) {
 
     // Content blocks (ACF repeater field for displaying content)
     $content_blocks = $post->acf->content_block;
+
+    $excluded_blocks = explode(',', $exclude_block);
+    $excluded_blocks = array_map('trim', $excluded_blocks);
+    
+    $i = 0; // start at zero so we can index at 1
     foreach ( $content_blocks as $content_block ) {
+      $i++;
+      // skip excluded content blocks
+      if (in_array($i, $excluded_blocks)) {
+        continue;
+      }
+
       $content_block_width = $content_block->content_block_width;
       $content_block_hr = ($content_block->content_block_hr_divider == true ? ' content_block_hr' : '');
 
       $rendered_page .= '<div class="content_block ' . $content_block_width . $content_block_hr . '"><div class="wrap">' . $content_block->content_block_text . '</div></div>';
+
     }
 
     // Page content
