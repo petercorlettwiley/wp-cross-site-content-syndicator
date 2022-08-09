@@ -23,7 +23,6 @@ function get_page_content_via_rest($atts) {
     "url" => null,
     "page_id" => null,
     "class" => null,
-    "exclude_header" => false
   ), $atts));
 
   $response = wp_remote_get( $url . '/wp-json/wp/v2/pages/' . $page_id );
@@ -43,13 +42,6 @@ function get_page_content_via_rest($atts) {
   if ( ! empty( $post ) ) {
     // Page metadata
     $page_title = $post->title->rendered;
-
-    // Page header
-    if ( !$exclude_header ){
-      $page_header = '<header><div class="wrap">' . $post->acf->page_header_content;
-      $rendered_page .= $page_header;
-      $rendered_page .= '</div></header>';
-    }
 
     // Page content
     $page_content = '<div class="content_block"><div class="wrap">' . $post->content->rendered . '</div></div>';
@@ -181,6 +173,10 @@ function get_board_content_via_rest($atts) {
     $boards = $options->acf->community;
     $rendered_boards = '';
     foreach ( $boards as $board ) {
+
+      if ( ! $board->active_community ) {
+        continue;
+      }
 
       // check if board slug is in ignore list, if not then render
       $board_slug = $board->slug;
