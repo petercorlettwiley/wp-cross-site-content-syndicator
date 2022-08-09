@@ -23,8 +23,7 @@ function get_page_content_via_rest($atts) {
     "url" => null,
     "page_id" => null,
     "class" => null,
-    "exclude_header" => false,
-    "exclude_block" => null
+    "exclude_header" => false
   ), $atts));
 
   $response = wp_remote_get( $url . '/wp-json/wp/v2/pages/' . $page_id );
@@ -52,27 +51,6 @@ function get_page_content_via_rest($atts) {
       $rendered_page .= '</div></header>';
     }
 
-    // Content blocks (ACF repeater field for displaying content)
-    $content_blocks = $post->acf->content_block;
-
-    $excluded_blocks = explode(',', $exclude_block);
-    $excluded_blocks = array_map('trim', $excluded_blocks);
-    
-    $i = 0; // start at zero so we can index at 1
-    foreach ( $content_blocks as $content_block ) {
-      $i++;
-      // skip excluded content blocks
-      if (in_array($i, $excluded_blocks)) {
-        continue;
-      }
-
-      $content_block_width = $content_block->content_block_width;
-      $content_block_hr = ($content_block->content_block_hr_divider == true ? ' content_block_hr' : '');
-
-      $rendered_page .= '<div class="content_block ' . $content_block_width . $content_block_hr . '"><div class="wrap">' . $content_block->content_block_text . '</div></div>';
-
-    }
-
     // Page content
     $page_content = '<div class="content_block"><div class="wrap">' . $post->content->rendered . '</div></div>';
     $rendered_page .= $page_content;
@@ -95,32 +73,78 @@ function get_footer_content_via_rest($atts) {
     "url" => null
   ), $atts));
 
-  $response = wp_remote_get( $url . '/wp-json/acf/v3/options/options' );
+  $response_acf = wp_remote_get( $url . '/wp-json/acf/v3/options/options' );
   // Exit if error.
-  if ( is_wp_error( $response ) ) {
+  if ( is_wp_error( $response_acf ) ) {
     return;
   }
   // Get the body.
-  $options = json_decode( wp_remote_retrieve_body( $response ) );
+  $options = json_decode( wp_remote_retrieve_body( $response_acf ) );
 
   // Exit if nothing is returned.
   if ( empty( $options ) ) {
     return;
   }
   // If there are posts.
-  $rendered_footer = '';
-  if ( ! empty( $options ) ) {
+  $rendered_footer = '<div class="footer_content"><div class="column-group">';
 
-    // Footer columns (ACF repeater field for displaying content)
-    $footer_columns = $options->acf->footer_columns;
-    foreach ( $footer_columns as $footer_column ) {
-      $footer_column_width = $footer_column->footer_column_width;
-      $rendered_footer .= '<div class="footer_column column" style="width: ' . $footer_column_width . '%;">' . $footer_column->footer_column . '</div>';
-    }
-    
-    //return $allposts;
-    return '<div class="footer_columns">' . $rendered_footer . '</div>';
+  if ( $options->acf->footer_content_extra ) {
+    $rendered_footer .= '<div class="column">' . $options->acf->footer_content_extra . '</div>';
   }
+
+  $communities = $options->acf->community;
+
+  if ( $communities ) {
+    $rendered_footer .= '<div class="column">Our Communities: ';
+    $community_count = 0;
+    $community_index = 0;
+
+    foreach( $communities as $community ) {
+      if ( $community->active_community ) {
+        $community_count++;
+      }
+    }
+
+    foreach( $communities as $community ) {
+      if ( $community->active_community ) {
+        if ( $community->local_community ) {
+          $rendered_footer .= '<a href="https://board.org/' . $community->slug . '">';
+        } else {
+          $rendered_footer .= '<a href="' . $community->community_url . '">';
+        }
+        $rendered_footer .= $community->name;// . ' ' . $i . '/' . count($communities);
+        $rendered_footer .= '</a>';
+        if ( $community_index < $community_count - 1 ) {
+          $rendered_footer .= ', ';
+        } else if ( $community_index == $community_count - 1 ) {
+          $rendered_footer .= ', and ';
+        }
+      }
+      $community_index++;
+    }
+    $rendered_footer .= '</div>';
+  }
+
+  $response_menu = wp_remote_get( $url . '/wp-json/menus/v1/locations/menu-1' );
+
+  if ( ! is_wp_error( $response_menu ) ) {
+    // Get the body.
+    $main_menu = json_decode( wp_remote_retrieve_body( $response_menu ) );
+
+    if ( $main_menu->items ) {
+      $rendered_footer .= '<div class="column"><ul class="main-menu">';
+
+      foreach( $main_menu->items as $menu_item ) {
+        $rendered_footer .= '<li><a href="' . $menu_item->url . '">' . $menu_item->title . '</a></li>';
+      }
+
+      $rendered_footer .= '</ul></div>';
+    }
+  }  
+
+  $rendered_footer .= '</div></div>';
+
+  return $rendered_footer;
 }
 // Register as a shortcode to be used on the site.
 add_shortcode( 'display_external_footer', 'get_footer_content_via_rest' );
@@ -154,34 +178,30 @@ function get_board_content_via_rest($atts) {
     $ignore = array_map('trim', $ignore);
 
     // Board info (ACF repeater field for displaying content)
-    $boards = $options->acf->community_branding;
+    $boards = $options->acf->community;
     $rendered_boards = '';
     foreach ( $boards as $board ) {
 
       // check if board slug is in ignore list, if not then render
-      $board_slug = $board->community_slug;
+      $board_slug = $board->slug;
 
       if (!in_array($board_slug, $ignore)) {
 
         // name, url
   
-        $board_name = $board->community_name;
+        $board_name = $board->name;
   
-        $board_url = ($board->external_community == true ? $board->external_community_url : $url . '/' . $board->community_root_url);
+        $board_url = ( $board->local_community == true ? $url . '/' . $board_slug : $board->community_url );
 
         // color
   
-        $board_color = $board->community_color;
+        $board_color = $board->color;
   
         // logo
   
-        $board_logo = $board->community_logo;
+        $board_logo = $board->logo->url;
   
-        $board_logo_ko = $board->community_logo_knockout;
-  
-        $board_logo_width = $board->community_logo_width;
-  
-        $board_logo_height = $board->community_logo_height;
+        $board_logo_ko = $board->logo_white->url;
   
         $board_block = <<< EOT
 <div class="board_logo">
